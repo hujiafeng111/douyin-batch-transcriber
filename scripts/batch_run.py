@@ -4,15 +4,16 @@
 # ///
 """Batch transcriber — exit-code based, no stdout parsing. Save Excel every N videos."""
 
-import json, os, subprocess, sys, time, tempfile
+import json, os, subprocess, sys, time
 from pathlib import Path
 
 OUTPUTS_DIR = Path(sys.argv[1])
 QUALIFYING_JSON = Path(sys.argv[2])
 COOKIE_FILE = Path(sys.argv[3])
 BATCH_NAME = sys.argv[4]
-RUN_ONE = Path(os.environ["USERPROFILE"]) / ".claude/skills/mrcarlsama-social-transcriber/scripts/run_one.py"
-GEN_SUMMARY = Path(os.environ["USERPROFILE"]) / ".claude/skills/douyin-batch-transcriber/scripts/gen_summary.py"
+HOME = Path(os.environ.get("USERPROFILE", os.environ.get("HOME", ".")))
+RUN_ONE = HOME / ".claude/skills/mrcarlsama-social-transcriber/scripts/run_one.py"
+GEN_SUMMARY = HOME / ".claude/skills/douyin-batch-transcriber/scripts/gen_summary.py"
 
 SAVE_INTERVAL = 10
 
@@ -25,7 +26,7 @@ def run_summary():
         "uv", "run", "--with", "openpyxl", "python", str(GEN_SUMMARY),
         str(OUTPUTS_DIR), str(OUTPUTS_DIR / BATCH_NAME)
     ], capture_output=True, encoding="utf-8",
-       env={**os.environ, "PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"},
+       env=dict(os.environ, PYTHONUTF8="1", PYTHONIOENCODING="utf-8"),
        timeout=60)
     if r.stdout:
         print(f"  {r.stdout.strip()}")
@@ -56,8 +57,7 @@ def main():
     print(f"总目标: {total} | 已完成: {len(done_ids)} | 逐字稿: {start_count}")
     print(f"每 {SAVE_INTERVAL} 条存一次 Excel | 绝不自动删文件\n")
 
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".log", encoding="utf-8", delete=False) as tmp:
-        log_path = tmp.name
+    log_path = OUTPUTS_DIR / ".batch_run_last.log"
 
     ok = 0
     fail = 0
@@ -82,7 +82,7 @@ def main():
                     "uv", "run", "--script", str(RUN_ONE),
                     url, "--cookie-file", str(COOKIE_FILE)
                 ], stdout=lf, stderr=subprocess.STDOUT,
-                   env={**os.environ, "PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"},
+                   env=dict(os.environ, PYTHONUTF8="1", PYTHONIOENCODING="utf-8"),
                    timeout=180)
 
             # Check exit code + verify files exist
@@ -134,7 +134,11 @@ def main():
     run_summary()
 
     # Clean temp log
-    Path(log_path).unlink(missing_ok=True)
+    try:
+        if log_path.exists():
+            log_path.unlink()
+    except Exception:
+        pass
 
 
 if __name__ == "__main__":

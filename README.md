@@ -115,15 +115,77 @@ Phase ④ 本仓库自带的 gen_summary.py → 汇总表.xlsx + 汇总表.csv
 
 ---
 
+## 一键安装
+
+### Windows
+```powershell
+git clone https://github.com/hujiafeng111/douyin-batch-transcriber.git
+cd douyin-batch-transcriber
+powershell -ExecutionPolicy Bypass -File install.ps1
+```
+
+### macOS / Linux
+```bash
+git clone https://github.com/hujiafeng111/douyin-batch-transcriber.git
+cd douyin-batch-transcriber
+bash install.sh
+```
+
+### 验证安装
+```powershell
+uv run --script ~/.claude/skills/douyin-batch-transcriber/scripts/preflight.py
+```
+
 ## 目录结构
 
 ```
-~/.claude/skills/douyin-batch-transcriber/
-├── SKILL.md                    ← Claude Code skill 定义
-├── README.md                   ← 本文件
-└── scripts/
-    ├── gen_summary.py          ← 逐字稿 → Excel/CSV 汇总
-    └── convert_cookie.py       ← document.cookie → Netscape 格式
+~/.claude/
+├── skills/
+│   ├── douyin-batch-transcriber/      ← 本 Skill（编排者）
+│   │   ├── SKILL.md
+│   │   └── scripts/
+│   │       ├── batch_run.py           ← 批量转写 + 增量存 Excel
+│   │       ├── gen_summary.py         ← 逐字稿 → Excel/CSV
+│   │       ├── convert_cookie.py      ← Cookie 格式转换
+│   │       └── preflight.py           ← 环境检查
+│   └── mrcarlsama-social-transcriber/ ← ASR 引擎
+│       └── scripts/run_one.py
+└── tools/
+    └── douyin-downloader/             ← 视频拉取引擎
+        └── run.py
+```
+
+## 首次运行故障排查
+
+### 问题 1：`uv` 找不到
+```powershell
+# 重新装 uv
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+# 或加入 PATH
+$env:Path = "$env:USERPROFILE\.local\bin;$env:Path"
+```
+
+### 问题 2：`mrcarlsama` 没装好
+```powershell
+git clone --depth 1 https://github.com/MrCarlsama/mrcarlsama-social-transcriber-skill.git $env:TEMP\mc
+Copy-Item "$env:TEMP\mc\skills\mrcarlsama-social-transcriber" "$env:USERPROFILE\.claude\skills\" -Recurse -Force
+# 预装依赖（首次需要下载 faster-whisper 模型，约 1-2GB）
+uv run --script $env:USERPROFILE\.claude\skills\mrcarlsama-social-transcriber\scripts\bootstrap.py --ensure
+```
+
+### 问题 3：`douyin-downloader` 没装好
+```powershell
+git clone --depth 1 https://github.com/jiji262/douyin-downloader.git "$env:USERPROFILE\.claude\tools\douyin-downloader"
+```
+
+### 问题 4：Git 没安装
+去 https://git-scm.com/download/win 下载安装。
+
+### 问题 5：转写时 Cookie 报错
+Cookie 必须是 **Netscape 格式**（制表符分隔），不能是 `document.cookie` 原始格式。
+使用本 Skill 自带的转换工具：
+```powershell
+uv run --script ~/.claude/skills/douyin-batch-transcriber/scripts/convert_cookie.py "你的cookie字符串"
 ```
 
 ---
